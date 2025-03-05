@@ -1,0 +1,66 @@
+Project Overview
+This project replicates an Operating System Simulator (OSS) which forks child processes, simulates a system clock, and maintains a process table.
+The OSS emulator forks a number of child processes, tracks the time they are created, and steps a shared simulated clock.
+It also includes provision to test whether the processes have completed and to release resources.
+The OSS program emulates a system clock in shared memory, and the child processes execute for a while before they terminate.
+The program maintains a process table that contains process information such as PID, starting time in seconds and nanoseconds, and status of the process.
+
+Key Features
+Simulated Clock: There is a simulated system clock in shared memory that is updated every 10 milliseconds.
+Child Process Management: OSS spawns child processes, assigns work to them, and manages them in a process table.
+Process Table: The program maintains a list of processes in a table containing the PID and start time for each child process. It prints this out periodically.
+Non-blocking Child Process Termination Check: Checks periodically if any of the child processes have terminated and updates the process table accordingly.
+
+Project Structure
+oss.c: Main program simulating the operating system.
+worker.c: Child worker process simulating work and terminating.
+Makefile: Contains rules to compile and clean the project.
+
+Compilation
+To compile the project, use the Makefile:
+make
+To clean up object files and executables:
+make clean
+Running the Program
+Once compiled, the program can be run with the following command:
+./oss -n <num_children> -s <start_time> -t <max_work_time> -i <time_increment>
+{./oss -n 5 -s 3 -t 7 -i 100}
+
+This command spawns 5 child processes, sets the clock to 3 seconds, gives each child 7 seconds of work, and increments the clock by 100 nanoseconds per iteration.
+
+
+Output
+The following are the program outputs:
+
+System Clock: Printed whenever the clock is updated, showing the current simulated time.
+Process Table: Printed every time the clock is updated (every 500 milliseconds) and shows the process ID (PID), start time in seconds and nanoseconds,
+ and the status of all child processes.
+Child Process Execution: Child processes print a message when executing, and when they complete their task, they print a completion message.
+
+
+Special Considerations
+Non-blocking Child Termination Test: The OSS program employs the waitpid call with the WNOHANG option to non-blockingly check for child termination so that it
+can keep on simulating the clock while also dealing with the child processes.
+
+Shared Memory Usage: The program makes use of shared memory (shmget and shmat) in order to simulate the system clock such that the OSS process as well as child
+processes can have a common clock. This causes all the processes to have synchronized simulated time.
+
+Busy-wait Simulation: The child processes simulate work by busy-waiting (using a for loop), as sleep or usleep was disallowed. It is a basic simulation, but in
+a real OS, the child processes would really perform some work or I/O operation.
+
+Clock Incrementation: The clock is incremented by 10 milliseconds each time it iterates through the loop, and this increment makes the check and updating of the
+process table.
+
+Program Termination: The program will terminate when all the child processes have completed their work and the clock has gone through its phases.
+
+Limitations and Known Issues
+Busy-Waiting Performance: The child processes use busy-waiting to mimic work, and this can be wasteful and use a great deal of CPU resources. In a real-world
+situation, the real work or I/O operations would replace the busy-wait loop.
+No Process Priority Handling: The program does not perform any handling of child process priority. Priority scheduling can be implemented in a higher-level
+simulation.
+Clock Precision: The clock is refreshed every 10 milliseconds, and the granularity of time increment is limited by the chosen time value (i).
+Higher precision in time would be required for more precise simulations
+
+
+Conclusion
+This simulation gives a basic example of how an operating system would be able to deal with processes and manage time through shared memory. This project is a step further in viewing how processes are dealt with, initiated, and terminated in a simulated environment.

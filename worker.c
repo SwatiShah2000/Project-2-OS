@@ -2,92 +2,75 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/shm.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
+#include <signal.h>
 #include <time.h>
 
-#define SHM_KEY 0x1234
+#define NANOSECONDS_IN_SECOND 1000000000
 
+// Structure for the simulated clock
 typedef struct {
     int seconds;
     int nanoseconds;
 } SimulatedClock;
 
+// Function to convert time to nanoseconds
+long long toNanoseconds(int sec, int nano) {
+    return (long long)sec * NANOSECONDS_IN_SECOND + nano;
+}
+
 int main(int argc, char *argv[]) {
     if (argc != 3) {
-        fprintf(stderr, "Usage: %s <seconds> <nanoseconds>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <sec> <nano>\n", argv[0]);
         exit(1);
     }
 
-    // Parse max execution time from command-line arguments
-    int max_seconds = atoi(argv[1]);
-    int max_nanoseconds = atoi(argv[2]);
+    int waitSeconds = atoi(argv[1]);
+    int waitNanoseconds = atoi(argv[2]);
 
-    // Attach to shared memory
-    int shm_id = shmget(SHM_KEY, sizeof(SimulatedClock), 0666);
+    // Get shared memory ID for simulated clock
+    int shm_id = shmget(IPC_PRIVATE, sizeof(SimulatedClock), 0666);
     if (shm_id < 0) {
-        perror("Worker: Shared memory access failed");
+        perror("shmget failed");
         exit(1);
     }
 
-    SimulatedClock *simClock = (SimulatedClock *)shmat(shm_id, NULL, 0);
-    if (simClock == (void *)-1) {
-        perror("Worker: Shared memory attach failed");
+    SimulatedClock* clock_ptr = (SimulatedClock*)shmat(shm_id, NULL, 0);
+    if (clock_ptr == (void*)-1) {
+        perror("shmat failed");
         exit(1);
     }
 
-    // Calculate termination time
-    int target_seconds = simClock->seconds + max_seconds;
-    int target_nanoseconds = simClock->nanoseconds + max_nanoseconds;
-    if (target_nanoseconds >= 1000000000) {
-        target_seconds++;
-        target_nanoseconds -= 1000000000;
-    }
+    // Calculate the target termination time
+    long long targetTime = toNanoseconds(clock_ptr->seconds, clock_ptr->nanoseconds) +
+                           toNanoseconds(waitSeconds, waitNanoseconds);
 
-    printf("WORKER PID:%d PPID:%d SysClockS:%d SysClockNano:%d TermTimeS:%d TermTimeNano:%d -- Just Starting\n",
-           getpid(), getppid(), simClock->seconds, simClock->nanoseconds, target_seconds, target_nanoseconds);
+    printf("WORKER PID: %d PPID: %d SysClockS: %d SysClockNano: %d TermTimeS: %d TermTimeNano: %d\n",
+           getpid(), getppid(), clock_ptr->seconds, clock_ptr->nanoseconds, waitSeconds, waitNanoseconds);
+    printf("--Just Starting\n");
 
-    // Track last reported second for "Still Running" output
-    int last_reported_sec = simClock->seconds;
-    
-    // Backup exit condition (real-time timeout)
-    time_t start_time = time(NULL);  
-
-    // Loop until termination time is reached
+    // Poll the clock until the target time is reached
     while (1) {
-        int current_seconds = simClock->seconds;
-        int current_nanoseconds = simClock->nanoseconds;
+        long long currentTime = toNanoseconds(clock_ptr->seconds, clock_ptr->nanoseconds);
 
-        // Check if worker should terminate
-        if (current_seconds > target_seconds ||
-           (current_seconds == target_seconds && current_nanoseconds >= target_nanoseconds)) {
-            printf("WORKER PID:%d PPID:%d SysClockS:%d SysClockNano:%d -- Terminating\n",
-                  getpid(), getppid(), current_seconds, current_nanoseconds);
+        if (currentTime >= targetTime) {
+            // Terminate once the target time is reached
+            printf("WORKER PID: %d PPID: %d SysClockS: %d SysClockNano: %d TermTimeS: %d TermTimeNano: %d\n",
+                   getpid(), getppid(), clock_ptr->seconds, clock_ptr->nanoseconds, waitSeconds, waitNanoseconds);
+            printf("--Terminating\n");
             break;
         }
 
-        // Print "Still Running" once per second
-        if (current_seconds > last_reported_sec) {
-            last_reported_sec = current_seconds;
-            printf("WORKER PID:%d PPID:%d SysClockS:%d SysClockNano:%d -- Still Running\n",
-                   getpid(), getppid(), current_seconds, current_nanoseconds);
+        // Output periodic messages every second
+        if (clock_ptr->nanoseconds % NANOSECONDS_IN_SECOND == 0) {
+            printf("WORKER PID: %d PPID: %d SysClockS: %d SysClockNano: %d TermTimeS: %d TermTimeNano: %d\n",
+                   getpid(), getppid(), clock_ptr->seconds, clock_ptr->nanoseconds, waitSeconds, waitNanoseconds);
+            printf("--%d seconds have passed since starting\n", clock_ptr->seconds);
         }
 
-        // **Backup Exit Condition: Exit after 10 seconds real-time**
-        if (time(NULL) - start_time > 10) {
-            printf("WORKER PID:%d PPID:%d -- Backup Exit Triggered (Real-time timeout)\n", getpid(), getppid());
-            break;
-        }
-
-        usleep(50000);  // Prevent CPU overuse
+        // Polling delay (no sleep here)
+        usleep(100000);  // You can adjust this based on desired granularity
     }
 
-    // Print confirmation before exiting
-    printf("WORKER PID:%d PPID:%d SysClockS:%d SysClockNano:%d -- Exiting Normally\n",
-           getpid(), getppid(), simClock->seconds, simClock->nanoseconds);
-
-    // Detach from shared memory and exit
-    shmdt(simClock);
     return 0;
 }
 
