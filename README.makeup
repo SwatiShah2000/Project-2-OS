@@ -1,0 +1,46 @@
+IMPROVEMENTS:
+1. Shared Memory Implementation:
+   - Created a consistent shared memory key in a shared header file (shared.h)
+   - Ensured both oss and worker processes access the same shared memory segment
+   - Improved error handling for shared memory operations
+
+2. Command Line Arguments:
+   - Added proper argument parsing using getopt() for all required parameters:
+     * -n (total number of processes)
+     * -s (simultaneous processes)
+     * -t (time limit for children)
+     * -i (interval between launches)
+   - Added validation to ensure all arguments are positive
+   - Implemented a help message with -h flag
+
+3. Worker Termination Logic:
+   - Fixed calculation of termination time by properly adding the wait time to the current clock
+   - Normalized termination time calculation when nanoseconds exceed 1 second
+   - Reduced polling interval to ensure workers don't miss clock changes
+   - Implemented proper startup, periodic, and termination messaging
+
+4. Process Management:
+   - Improved tracking of active and total children
+   - Implemented proper reuse of process table entries
+   - Added interval-based process launching that respects the simulated clock
+   - Fixed the checkForTerminatedChild() function to correctly update the process table
+
+5. Signal Handling:
+   - Added handlers for SIGINT (Ctrl+C) and SIGTERM signals
+   - Implemented the required 60-second timeout using SIGALRM
+   - Added a cleanup function to properly terminate all child processes and remove shared memory
+
+6. Clock Management:
+   - Improved the incrementClock() function to ensure consistent behavior
+   - Added a mechanism to print the process table at regular intervals of simulated time
+   - Modified the clock checking logic in workers to ensure they detect changes
+
+7. Random Time Generation:
+   - Fixed the random number generation to ensure each worker gets a different runtime
+   - Added better seeding using a combination of time, PID, and process count
+   - Implemented the required randomization between 1 and timeLimit seconds
+
+8. Makefile Improvements:
+   - Fixed the Makefile to correctly compile both executables
+   - Added proper dependency handling for the shared header file
+   - Included a 'rebuild' target for cleaner recompilation

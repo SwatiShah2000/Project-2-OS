@@ -2,6 +2,7 @@
 
 CC = gcc
 CFLAGS = -Wall -g
+DEPS = shared.h
 OBJS_OSS = oss.o
 OBJS_WORKER = worker.o
 
@@ -16,12 +17,11 @@ oss: $(OBJS_OSS)
 worker: $(OBJS_WORKER)
 	$(CC) $(CFLAGS) -o worker $(OBJS_WORKER)
 
-# Compile oss object file
-oss.o: oss.c
+# Compile object files
+oss.o: oss.c $(DEPS)
 	$(CC) $(CFLAGS) -c oss.c
 
-# Compile worker object file
-worker.o: worker.c
+worker.o: worker.c $(DEPS)
 	$(CC) $(CFLAGS) -c worker.c
 
 # Clean up generated files

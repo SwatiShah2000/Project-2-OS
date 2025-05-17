@@ -1,8 +1,10 @@
 #ifndef SHARED_H
 #define SHARED_H
 
-#define SHM_KEY 0x1234  // Define the shared memory key
+// Shared memory key
+#define SHM_KEY 0x1234
 
+// Simulated clock structure
 typedef struct {
     int seconds;
     int nanoseconds;
